@@ -22,8 +22,13 @@ typedef enum : NSUInteger {
 
 @interface CGameView()
 
+@property(nonatomic,assign)NSInteger                            mScore;
+
 @property(nonatomic,assign)MoveDirection                        mMoveDir;
+
 @property(nonatomic,strong)NSMutableArray<NSMutableArray *>     *mSourceArray;
+
+@property(nonatomic,strong)NSMutableArray<NSMutableArray *>     *mHistoryStepArray;/* 十步以内 */
 
 
 @end
@@ -41,6 +46,7 @@ typedef enum : NSUInteger {
 - (void)initUI {
     
     self.mSourceArray = [NSMutableArray new];
+    self.mHistoryStepArray = [NSMutableArray new];
     
     self.backgroundColor = CRGBHex(0xccc0b2);
     
@@ -91,13 +97,6 @@ typedef enum : NSUInteger {
 
 - (void)startGame {
     
-//    CSliderView *view1 = self.mSourceArray[0][1];
-//    view1.number = 2;
-//    CSliderView *view2 = self.mSourceArray[1][1];
-//    view2.number = 2;
-//    CSliderView *view3 = self.mSourceArray[2][1];
-//    view3.number = 2;
-    
     for (int i = 0;  i < 4; i ++) {
         int x = [self getRandomNumber:0 to:3];
         int y = [self getRandomNumber:0 to:3];
@@ -105,10 +104,21 @@ typedef enum : NSUInteger {
         CSliderView *view = self.mSourceArray[x][y];
         if (view.number == 0) {
             view.number = [defaultNumber[[self getRandomNumber:0 to:1]] intValue];
+            self.mScore += view.number;
         }else {
             i--;
         }
     }
+    [self.mDelegate ToCalculateScoer:self.mScore];
+}
+
+- (void)overAgain {
+    self.mScore = 0;
+    for (int i = 0; i < TableWidth * TableHeight; i++) {
+        CSliderView *sliderV = [self getSliDerViewByIndex:i];
+        sliderV.number = 0;
+    }
+    [self startGame];
 }
 
 
@@ -120,36 +130,31 @@ typedef enum : NSUInteger {
 }
 
 
+#pragma mark -----------UISwipeGestureRecognizer-----------------
+
 - (void)handleSwipeFrom:(UISwipeGestureRecognizer *)recognizer{
     
     MoveDirection dir = DirectionZero;
-    
     if(recognizer.direction == UISwipeGestureRecognizerDirectionDown) {
-        NSLog(@"swipe down");
         dir = DirectionDown;
         [self dowm];
-    }
-    if(recognizer.direction == UISwipeGestureRecognizerDirectionUp) {
-        NSLog(@"swipe up");
+    }else if(recognizer.direction == UISwipeGestureRecognizerDirectionUp) {
         dir = DirectionUp;
         [self up];
-    }
-    if(recognizer.direction == UISwipeGestureRecognizerDirectionLeft) {
-        NSLog(@"swipe left");
+    }else if(recognizer.direction == UISwipeGestureRecognizerDirectionLeft) {
         dir = DirectionLeft;
         [self left];
-    }
-    if(recognizer.direction == UISwipeGestureRecognizerDirectionRight) {
-        NSLog(@"swipe right");
+    }else if(recognizer.direction == UISwipeGestureRecognizerDirectionRight) {
         dir = DirectionRight;
         [self right];
     }
     /* 动画操作 */
-    [self toMoveSliderView:dir];
+    self.mMoveDir = dir;
+    [self toMoveSliderView];
 }
 
 
-
+#pragma mark ---------------四个方向滑动时间--------------------
 - (void)up {
     for (int y = 0; y< TableWidth; y++) {
         for (int x = 1; x < TableHeight; x++) {
@@ -220,7 +225,7 @@ typedef enum : NSUInteger {
 
 
 
-
+#pragma mark ---------------- 横向 纵向  冒泡排序 ---------------------
 /**
  上下滑动
  
@@ -235,6 +240,8 @@ typedef enum : NSUInteger {
         /* 在数组中的位置变更 */
         self.mSourceArray[curX_][curY_] = nextCell;
         self.mSourceArray[nextX_][curY_] = curCell;
+        
+        curCell.mHaveMove = YES;
     }else if (nextCell.tempNumber == curCell.tempNumber) {
         nextCell.tempNumber = nextCell.tempNumber * 2;
         curCell.tempNumber = 0;
@@ -254,6 +261,8 @@ typedef enum : NSUInteger {
         /* 在数组中的位置变更 */
         self.mSourceArray[curX_][curY_] = nextCell;
         self.mSourceArray[curX_][nextY_] = curCell;
+        
+        curCell.mHaveMove = YES;
     }else if (nextCell.tempNumber == curCell.tempNumber) {
         nextCell.tempNumber = nextCell.tempNumber * 2;
         curCell.tempNumber = 0;
@@ -265,12 +274,7 @@ typedef enum : NSUInteger {
 /**
  随机生成一个新的数字
  */
-- (void)randomNewNumberAndDir:(MoveDirection)direction_ {
-    if (direction_ == self.mMoveDir) {
-        return;
-    }
-    self.mMoveDir = direction_;
-    
+- (void)randomNewNumber {
     NSMutableArray *blankSliderVArray = [NSMutableArray new];
     /* 找出空白的滑块 */
     for (int i = 0; i < TableWidth * TableHeight; i++) {
@@ -283,48 +287,49 @@ typedef enum : NSUInteger {
     int randomIndex = [blankSliderVArray[[self getRandomNumber:0 to:(int)blankSliderVArray.count-1]] intValue];
     CSliderView *sliderV = [self getSliDerViewByIndex:randomIndex];
     sliderV.number = 2;
+    
+    self.mScore += sliderV.number;
+    
 }
 
 
 /**
  循环所有的模块进行动画移动
  */
-- (void)toMoveSliderView:(MoveDirection)dir_ {
+- (void)toMoveSliderView {
+    self.mScore = 0;
     
+    __block BOOL allowNewNumber = NO;
     [UIView animateWithDuration:0.3 animations:^{
         for (int i = 0; i < self.mSourceArray.count; i++) {
             for (int j = 0; j < self.mSourceArray[i].count; j++) {
                 CSliderView *curCell = self.mSourceArray[i][j];
+                if (curCell.mHaveMove) {
+                    allowNewNumber = YES;
+                }
                 [curCell toAnimation];
+                self.mScore += curCell.number;
             }
         }
     } completion:^(BOOL finished) {
         if (finished) {
             /* 随机生成一个数字 */
-            [self randomNewNumberAndDir:dir_];
+            if (allowNewNumber) {
+                [self randomNewNumber];
+                [self.mDelegate ToCalculateScoer:self.mScore];
+            }
+            
         }
     }];
 }
 
 
+/**
+ 通过index 获取某个view
 
-- (CSliderView *)getCellModelByX:(int)x_ Y:(int)y_ {
-    
-    if (x_ > self.mSourceArray.count) {
-        return nil;
-    }
-    if (y_ > self.mSourceArray[x_].count) {
-        return nil;
-    }
-    
-    CSliderView *cell = self.mSourceArray[x_][y_];
-    if (cell.number > 0) {
-        return cell;
-    }
-    return nil;
-}
-
-
+ @param index_ 下标
+ @return 视图
+ */
 - (CSliderView *)getSliDerViewByIndex:(int)index_ {
     int row = index_/TableWidth;
     int cos = index_%TableWidth;
@@ -335,7 +340,6 @@ typedef enum : NSUInteger {
     if (cos > self.mSourceArray[row].count) {
         return nil;
     }
-    
     CSliderView *cell = self.mSourceArray[row][cos];
     return cell;
 }

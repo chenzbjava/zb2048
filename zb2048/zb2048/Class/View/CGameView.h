@@ -14,11 +14,22 @@
 #define SliderViewWidth      70
 #define SliderViewmargin     5
 
+
+@protocol CGameViewDelegate
+
+- (void)ToCalculateScoer:(NSInteger)score_;
+
+@end
+
 @interface CGameView : UIView
+
+@property(nonatomic,weak)id<CGameViewDelegate>      mDelegate;
 
 - (instancetype)initWithFrame:(CGRect)frame;
 
 - (void)startGame;
+
+- (void)overAgain;
 
 @end
 

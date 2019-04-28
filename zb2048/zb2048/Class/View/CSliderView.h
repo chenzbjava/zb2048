@@ -11,6 +11,9 @@
 
 @interface CSliderView : UIView
 
+
+@property(nonatomic,assign)BOOL         mHaveMove;
+
 @property(nonatomic,assign)int          mIndex;
 
 @property(nonatomic,assign)int          pointX;

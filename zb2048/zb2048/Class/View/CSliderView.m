@@ -68,11 +68,8 @@
     frame.origin.y = _pointX * (SliderViewWidth + SliderViewmargin) + SliderViewmargin;
     frame.origin.x = _pointY * (SliderViewWidth + SliderViewmargin) + SliderViewmargin;
     self.frame = frame;
-    
     self.mIndex = _pointX * TableWidth + _pointY;
-    
     self.number = _tempNumber;
-    _tempNumber = _number;
-    
+    self.mHaveMove = NO;
 }
 @end
